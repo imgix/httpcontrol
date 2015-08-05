@@ -232,6 +232,9 @@ func (t *Transport) CancelRequest(req *http.Request) {
 	if bc, ok := req.Body.(*bodyCloser); ok {
 		bc.timer.Stop()
 	}
+	if req.Cancel != nil {
+		t.startOnce.Do(func() { close(req.Cancel) })
+	}
 	t.transport.CancelRequest(req)
 }
 
