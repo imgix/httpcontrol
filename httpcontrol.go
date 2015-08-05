@@ -232,18 +232,25 @@ func (t *Transport) CancelRequest(req *http.Request) {
 	if bc, ok := req.Body.(*bodyCloser); ok {
 		bc.timer.Stop()
 	}
-	if req.Cancel != nil {
-		t.startOnce.Do(func() { close(req.Cancel) })
-	}
 	t.transport.CancelRequest(req)
 }
 
 func (t *Transport) tries(req *http.Request, try uint) (*http.Response, error) {
 	startTime := time.Now()
 	var timer *time.Timer
+	rCancler := make(chan struct{})
+	req.Cancel = rCancler
 	if t.RequestTimeout != 0 {
 		timer = time.AfterFunc(t.RequestTimeout, func() {
-			t.CancelRequest(req)
+
+			//t.CancelRequest(req)
+			t.startOnce.Do(t.start)
+			if bc, ok := req.Body.(*bodyCloser); ok {
+				bc.timer.Stop()
+			}
+			close(rCancler)
+			t.transport.CancelRequest(req)
+
 		})
 	}
 	res, err := t.transport.RoundTrip(req)
